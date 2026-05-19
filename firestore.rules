@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Site Stats Rules
+    match /stats/visitors {
+      allow get: if true;
+      allow update: if (
+        incoming().diff(existing()).affectedKeys().hasOnly(['visitorCount']) &&
+        incoming().visitorCount == existing().visitorCount + 1
+      );
+      allow create: if (
+        incoming().keys().hasAll(['visitorCount']) &&
+        incoming().keys().size() == 1 &&
+        incoming().visitorCount == 1
+      );
+    }
+  }
+}
